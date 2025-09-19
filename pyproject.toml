@@ -45,6 +45,7 @@ homepage = "https://github.com/Preocts/websocket-playground"
 
 [project.scripts]
 ws-serve = "websocket_playground.server:main"
+ws-join = "websocket_playground.client:main"
 
 [tool.hatch.version]
 source = "vcs"

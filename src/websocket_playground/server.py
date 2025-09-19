@@ -60,4 +60,4 @@ def main() -> None:
     except KeyboardInterrupt:
         server.server.shutdown()
         server.join()
-        logger.info("Server shut down.")
+        logger.info("Server stopped.")
