@@ -1,7 +1,7 @@
 """
 1. Connect to a server
 1. Echo all server messages
-1. When given a secret number, send it back
+1. Response to all messages with client id and secret
 """
 
 from __future__ import annotations

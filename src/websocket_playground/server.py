@@ -2,8 +2,8 @@
 1. Start a server
 1. On join, send a welcome message with a client id
 1. On join, register websocket with the id and a secret number
-1. Once a minute, broadcast the current time
-1. Once a minute, tell specific websockets their secret number
+1. Once every 10 seconds, broadcast the current time
+1. On recieve: Validate that client id and secret are correct
 1. Clean up all connections on sigterm
 """
 
@@ -18,6 +18,7 @@ import threading
 import time
 import uuid
 
+from websockets import CloseCode
 from websockets import ConnectionClosed
 from websockets.sync.server import ServerConnection
 from websockets.sync.server import serve
@@ -107,19 +108,20 @@ class TimeServer(threading.Thread):
                 logger.info("Client has disconnected from server: %s", server.id)
                 return None
 
-            if "uid" in message and message["uid"] != client.uid:
-                logger.warning("Invalid client - dropping %s", client.uid)
-                client.connection.close(reason="Invalid client")
+            if "uid" in message and "secret" in message:
+                if message["uid"] != client.uid or message["secret"] != client.secret:
+                    logger.warning("Invalid client - dropping %s", client.uid)
+                    client.connection.close(CloseCode.INVALID_DATA, "Invalid client")
+                    self._clients.remove(client)
+                    return None
+                else:
+                    logger.info("Good response from %s", client.uid)
+
+            else:
+                logger.info("Unexpected message from %s - dropping: %s", client.uid)
+                client.connection.close(CloseCode.INVALID_DATA, "Unexpected message")
                 self._clients.remove(client)
                 return None
-
-            if "secret" in message and message["secret"] != client.secret:
-                logger.warning("Invalid secret given - dropping %s", client.uid)
-                client.connection.close(reason="Invalid secret")
-                self._clients.remove(client)
-                return None
-
-            logger.info("HANDLER: %s", message)
 
     def broadcast(self, message: str) -> None:
         """Queue a message to be delivered to all registered clients."""
