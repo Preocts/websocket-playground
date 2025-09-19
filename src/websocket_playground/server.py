@@ -12,13 +12,13 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import queue
+import random
 import threading
 import time
-import random
 import uuid
-import queue
 
-from websockets import ConnectionClosedOK, ConnectionClosed
+from websockets import ConnectionClosed
 from websockets.sync.server import ServerConnection
 from websockets.sync.server import serve
 
@@ -99,7 +99,7 @@ class TimeServer(threading.Thread):
             except TimeoutError:
                 continue
 
-            except ConnectionClosedOK:
+            except ConnectionClosed:
                 logger.info("Client has disconnected from server: %s", server.id)
                 return None
 
