@@ -18,7 +18,7 @@ import random
 import uuid
 import queue
 
-from websockets import ConnectionClosedOK
+from websockets import ConnectionClosedOK, ConnectionClosed
 from websockets.sync.server import ServerConnection
 from websockets.sync.server import serve
 
@@ -88,7 +88,7 @@ class TimeServer(threading.Thread):
             except queue.Empty:
                 pass
 
-            except ConnectionError as err:
+            except ConnectionClosed as err:
                 logger.info("Client disconnected? (%s)", err)
                 self._clients.remove(client)
                 return None
