@@ -83,7 +83,7 @@ class TimeServer(threading.Thread):
 
         while self.is_serving:
             try:
-                client.connection.send(client.send_queue.get())
+                client.connection.send(client.send_queue.get(timeout=0.1))
 
             except queue.Empty:
                 pass
