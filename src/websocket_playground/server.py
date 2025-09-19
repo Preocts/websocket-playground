@@ -9,13 +9,13 @@
 
 from __future__ import annotations
 
-import time
-import threading
 import logging
+import threading
+import time
 
 from websockets import ConnectionClosedOK
-from websockets.sync.server import serve
 from websockets.sync.server import ServerConnection
+from websockets.sync.server import serve
 
 logging.basicConfig(
     level="INFO",
