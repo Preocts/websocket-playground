@@ -13,6 +13,7 @@ import time
 import threading
 import logging
 
+from websockets import ConnectionClosedOK
 from websockets.sync.server import serve
 from websockets.sync.server import ServerConnection
 
@@ -57,6 +58,10 @@ class TimeServer(threading.Thread):
 
             except TimeoutError:
                 continue
+
+            except ConnectionClosedOK:
+                logger.info("Client has disconnected from server: %s", server.id)
+                return None
 
             logger.info("HANDLER: %s", message)
 

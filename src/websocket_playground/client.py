@@ -10,6 +10,7 @@ import time
 import threading
 import logging
 
+from websockets import ConnectionClosedOK
 from websockets.sync.client import connect
 
 logging.basicConfig(
@@ -46,6 +47,11 @@ class TimeClient(threading.Thread):
                 except TimeoutError:
                     continue
 
+                except ConnectionClosedOK:
+                    logger.info("Server has disconnected: %s", websocket.id)
+                    self._is_running.clear()
+                    return None
+
                 logger.info("Recieved message: %s", message)
 
     def stop(self) -> None:
@@ -57,11 +63,13 @@ def main() -> None:
     client.start()
 
     try:
-        while True:
+        while client.is_running:
             time.sleep(0.1)
 
     except KeyboardInterrupt:
         client.stop()
+
+    finally:
         client.join()
 
     logger.info("Client stopped.")
