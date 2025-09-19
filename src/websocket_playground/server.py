@@ -35,17 +35,29 @@ class TimeServer(threading.Thread):
             port=self.port,
             # process_request=self.process_request,
         )
+        self._serving = threading.Event()
+
+    @property
+    def is_serving(self) -> bool:
+        return self._serving.is_set()
 
     def run(self) -> None:
         """Start the thread."""
         logger.info("Starting TimeServer...")
+        self._serving.set()
         self.server.serve_forever()
+        self._serving.clear()
 
-    @staticmethod
-    def handler(server: ServerConnection) -> None:
+    def handler(self, server: ServerConnection) -> None:
         logger.info("Handler triggered: %s", server.id)
-        while True:
-            message = server.recv()
+
+        while self.is_serving:
+            try:
+                message = server.recv(timeout=0.2)
+
+            except TimeoutError:
+                continue
+
             logger.info("HANDLER: %s", message)
 
 
