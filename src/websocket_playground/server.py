@@ -16,6 +16,7 @@ import threading
 import time
 import random
 import uuid
+import queue
 
 from websockets import ConnectionClosedOK
 from websockets.sync.server import ServerConnection
@@ -32,12 +33,15 @@ logger = logging.getLogger()
 class Client:
     uid: str
     secret: int
+    connection: ServerConnection
+    send_queue: queue.Queue[str] = dataclasses.field(default_factory=queue.Queue)
 
     @classmethod
-    def new(cls) -> Client:
+    def new(cls, connection: ServerConnection) -> Client:
         return cls(
             uid=str(uuid.uuid4()),
             secret=random.randint(0, 420),
+            connection=connection,
         )
 
 
@@ -55,6 +59,8 @@ class TimeServer(threading.Thread):
         )
         self._serving = threading.Event()
 
+        self._clients: set[Client] = set()
+
     @property
     def is_serving(self) -> bool:
         return self._serving.is_set()
@@ -69,13 +75,26 @@ class TimeServer(threading.Thread):
     def handler(self, server: ServerConnection) -> None:
         logger.info("Handler triggered: %s", server.id)
 
-        client = Client.new()
+        client = Client.new(server)
+        self._clients.add(client)
+
         server.send(json.dumps({"uid": client.uid, "secret": client.secret}))
         logger.info("Registered client %s with secret %d", client.uid, client.secret)
 
         while self.is_serving:
             try:
-                message = server.recv(timeout=0.2)
+                client.connection.send(client.send_queue.get())
+
+            except queue.Empty:
+                pass
+
+            except ConnectionError as err:
+                logger.info("Client disconnected? (%s)", err)
+                self._clients.remove(client)
+                return None
+
+            try:
+                message = server.recv(timeout=0.1)
 
             except TimeoutError:
                 continue
@@ -86,14 +105,24 @@ class TimeServer(threading.Thread):
 
             logger.info("HANDLER: %s", message)
 
+    def broadcast(self, message: str) -> None:
+        """Queue a message to be delivered to all registered clients."""
+        for client in self._clients.copy():
+            client.send_queue.put(message)
+
 
 def main() -> None:
     server = TimeServer("localhost", 5005)
     server.start()
-
+    last_time_sent = 0
     try:
         while True:
             time.sleep(0.1)
+
+            if int(time.time()) % 10 == 0 and int(time.time()) != last_time_sent:
+                logger.info("Broadcasting time to all clients")
+                last_time_sent = int(time.time())
+                server.broadcast(f"Hello everyone! The unix time is currently {int(time.time())}")
 
     except KeyboardInterrupt:
         server.server.shutdown()
