@@ -9,9 +9,13 @@
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import logging
 import threading
 import time
+import random
+import uuid
 
 from websockets import ConnectionClosedOK
 from websockets.sync.server import ServerConnection
@@ -22,6 +26,19 @@ logging.basicConfig(
     format="%(asctime)s : %(levelname)s : %(thread)s : %(message)s",
 )
 logger = logging.getLogger()
+
+
+@dataclasses.dataclass(frozen=True)
+class Client:
+    uid: str
+    secret: int
+
+    @classmethod
+    def new(cls) -> Client:
+        return cls(
+            uid=str(uuid.uuid4()),
+            secret=random.randint(0, 420),
+        )
 
 
 class TimeServer(threading.Thread):
@@ -51,6 +68,10 @@ class TimeServer(threading.Thread):
 
     def handler(self, server: ServerConnection) -> None:
         logger.info("Handler triggered: %s", server.id)
+
+        client = Client.new()
+        server.send(json.dumps({"uid": client.uid, "secret": client.secret}))
+        logger.info("Registered client %s with secret %d", client.uid, client.secret)
 
         while self.is_serving:
             try:
