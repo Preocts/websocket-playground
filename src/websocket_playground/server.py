@@ -94,13 +94,29 @@ class TimeServer(threading.Thread):
                 return None
 
             try:
-                message = server.recv(timeout=0.1)
+                message = json.loads(server.recv(timeout=0.1))
+
+            except json.JSONDecodeError:
+                logger.info("Invalid message recieved from %s", client.uid)
+                continue
 
             except TimeoutError:
                 continue
 
             except ConnectionClosed:
                 logger.info("Client has disconnected from server: %s", server.id)
+                return None
+
+            if "uid" in message and message["uid"] != client.uid:
+                logger.warning("Invalid client - dropping %s", client.uid)
+                client.connection.close(reason="Invalid client")
+                self._clients.remove(client)
+                return None
+
+            if "secret" in message and message["secret"] != client.secret:
+                logger.warning("Invalid secret given - dropping %s", client.uid)
+                client.connection.close(reason="Invalid secret")
+                self._clients.remove(client)
                 return None
 
             logger.info("HANDLER: %s", message)
@@ -122,7 +138,8 @@ def main() -> None:
             if int(time.time()) % 10 == 0 and int(time.time()) != last_time_sent:
                 logger.info("Broadcasting time to all clients")
                 last_time_sent = int(time.time())
-                server.broadcast(f"Hello everyone! The unix time is currently {int(time.time())}")
+                msg = {"message": f"Hello everyone! The unix time is currently {int(time.time())}"}
+                server.broadcast(json.dumps(msg))
 
     except KeyboardInterrupt:
         server.server.shutdown()

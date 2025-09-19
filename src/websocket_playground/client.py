@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -37,12 +38,21 @@ class TimeClient(threading.Thread):
 
         with connect(uri=self.uri) as websocket:
             logger.info("Client connected: %s", websocket.id)
+            my_uid = "UNDEFINED"
+            my_secret = -1
 
             while self.is_running:
 
                 try:
 
                     message = websocket.recv(timeout=0.2)
+
+                    try:
+                        _message = json.loads(message)
+
+                    except json.JSONDecodeError:
+                        logger.info("Cannot parse message! '%s'", message)
+                        continue
 
                 except TimeoutError:
                     continue
@@ -52,7 +62,18 @@ class TimeClient(threading.Thread):
                     self._is_running.clear()
                     return None
 
-                logger.info("Recieved message: %s", message)
+                if "uid" in _message:
+                    my_uid = _message["uid"]
+                    logger.info("Got a uid: %s", my_uid)
+
+                if "secret" in _message:
+                    my_secret = _message["secret"]
+                    logger.info("Got a secret: %d", my_secret)
+
+                if "message" in _message:
+                    logger.info("Recieved message: %s", _message["message"])
+                    response = {"secret": my_secret, "uid": my_uid}
+                    websocket.send(json.dumps(response))
 
     def stop(self) -> None:
         self._is_running.clear()
